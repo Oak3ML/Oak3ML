@@ -55,7 +55,6 @@ public class DecisionTreeSettings {
     /** Best split finder class. */
     private BestSplitFinder bestSplitFinder = new BestSplitFinder(impurityCalculationMethod);
     
-
     public IgniteCompute getCompute() {
         return compute;
     }

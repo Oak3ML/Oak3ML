@@ -31,7 +31,7 @@ public class DecisionTreeGetMajorityLabelTest {
         data.add(new TestDataSample(null, TRUE_LABEL));
         data.add(new TestDataSample(null, FALSE_LABEL));
         data.add(new TestDataSample(null, FALSE_LABEL));
-        Assert.assertEquals("false", tree.getMajorityLabel(data).getName());
+        Assert.assertEquals("false", tree.getMajorityLabel(tree.countNbOfSamples(data)).getName());
     }
 
     @Test
@@ -42,6 +42,6 @@ public class DecisionTreeGetMajorityLabelTest {
         data.add(new TestDataSample(null, FALSE_LABEL));
         data.add(new TestDataSample(null, TRUE_LABEL));
         data.add(new TestDataSample(null, FALSE_LABEL));
-        Assert.assertEquals("false", tree.getMajorityLabel(data).getName());
+        Assert.assertEquals("false", tree.getMajorityLabel(tree.countNbOfSamples(data)).getName());
     }
 }

@@ -88,10 +88,8 @@ public class Main {
         Feature passengerClass = CategoricalFeature.newFeature("Pclass", Sets.newHashSet(1, 2, 3));
         Feature sex = CategoricalFeature.newFeature("Sex", Sets.newHashSet("male", "female"));
         
-        Feature ageFeatures = GroupedPredicatesFeature.newFeature("Age", new DivisiveDiscretiser.Builder().build().discretise(trainingData, "Age", 3));
-        List<Feature> fareFeatures = new DivisiveDiscretiser.Builder().build().discretise(trainingData, "Fare", 3);
-        
-       
+        Feature ageFeatures = GroupedPredicatesFeature.newFeature("Age", new DivisiveDiscretiser.Builder().build().discretise(trainingData, "Age", 4));
+        Feature fareFeatures = GroupedPredicatesFeature.newFeature("Fare", new DivisiveDiscretiser.Builder().build().discretise(trainingData, "Fare", 4));
         
         Feature zeroSiblings = newFeature("SibSp", 0);
         Feature hasSiblings = newFeature("SibSp", between(0, 2));
@@ -109,11 +107,10 @@ public class Main {
         
         List<Feature> featureList = Arrays.asList(passengerClass, sex, zeroSiblings, hasSiblings, moreThan2Siblings,
                 zeroParentsChildren, hasParentsChildren, moreThan2Children,
-                cabinA, cabinB, cabinC, ageFeatures,
+                cabinA, cabinB, cabinC, ageFeatures, fareFeatures,
                 cabinD, cabinE, cabinF, embarked);
         
         List<Feature> editableFeatures = new ArrayList<Feature>();
-        editableFeatures.addAll(fareFeatures);
         editableFeatures.addAll(featureList);
         return editableFeatures;
     }

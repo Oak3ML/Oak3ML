@@ -72,9 +72,12 @@ public class DivisiveDiscretiser implements FeatureDiscretiser {
     @Override
     public List<Feature> discretise(List<DataSample> trainingData, String column, int numberOfBins) {
         Preconditions.checkArgument(numberOfBins >= 2);
+        Preconditions.checkArgument((numberOfBins & (numberOfBins - 1)) == 0, "Number of bins must be power of 2 (2, 4, 8, 16...) because algorithm "
+                + "recusively splits data in half when finds best point and each split produces 2 bins");
         
-        // currentNumberOfBins = 2 because one split point (minimum) will always produce two features(bins)
-        List<Double> binSplitPoints = getSplitPoints(trainingData, column, numberOfBins, 2);
+        int numberOfSplitPoints = numberOfBins - 1;
+        // currentNumberOfSplitPoints = 1 because one split point (minimum) will always produce two features(bins)
+        List<Double> binSplitPoints = getSplitPoints(trainingData, column, numberOfSplitPoints, 1);
         List<Feature> features = new ArrayList<>();
         int binNb = 0;
         Double previousBinPoint = null;
@@ -104,7 +107,7 @@ public class DivisiveDiscretiser implements FeatureDiscretiser {
      * @param column Column which values are being discretised.
      * @return Points on which to to discretise numerical data to bins.
      */
-    protected List<Double> getSplitPoints(List<DataSample> trainingData, String column, int numberOfBins, int currentNumberOfBins) {
+    protected List<Double> getSplitPoints(List<DataSample> trainingData, String column, int numberOfSplitPoints, int currentNumberOfSplitPoints) {
         boolean stoppingCriterionReached = trainingData.size() <= 1 || getLabel(trainingData) != null;
         if (stoppingCriterionReached) {
             return Lists.newArrayList();
@@ -136,9 +139,9 @@ public class DivisiveDiscretiser implements FeatureDiscretiser {
         List<Double> result = Lists.newArrayList();
         
         // add results and invoke recursion if needed
-        if (currentNumberOfBins < numberOfBins) result.addAll(getSplitPoints(partitionedData.get(false), column, numberOfBins, currentNumberOfBins + 1));
+        if (currentNumberOfSplitPoints < numberOfSplitPoints) result.addAll(getSplitPoints(partitionedData.get(false), column, numberOfSplitPoints, currentNumberOfSplitPoints + 1));
         result.add(bestPoint);
-        if (currentNumberOfBins < numberOfBins) result.addAll(getSplitPoints(partitionedData.get(true), column, numberOfBins, currentNumberOfBins + 1));
+        if (currentNumberOfSplitPoints < numberOfSplitPoints) result.addAll(getSplitPoints(partitionedData.get(true), column, numberOfSplitPoints, currentNumberOfSplitPoints + 1));
         return result;
     }
     

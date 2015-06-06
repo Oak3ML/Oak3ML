@@ -6,8 +6,8 @@ import static java.util.stream.Collectors.toList;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.apache.ignite.IgniteCompute;
 import org.oak3ml.decisiontree.data.DataSample;
@@ -19,6 +19,8 @@ import org.oak3ml.decisiontree.impurity.ImpurityCalculationMethod;
 import org.oak3ml.decisiontree.label.Label;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.Maps;
 
 /**
  * Decision tree implementation.
@@ -105,20 +107,21 @@ public class DecisionTree {
      * @return Node after split. For a first invocation it returns tree root node.
      */
     protected Node growTree(List<DataSample> trainingData, List<Feature> features, int currentDepth, Object branchFromParent) {
+        Map<Label, Long> countedSamples = countNbOfSamples(trainingData);
 
         Label currentNodeLabel = null;
         // if dataset already homogeneous enough (has label assigned) make this node a leaf
         if ((currentNodeLabel = getLabel(trainingData)) != null) {
             log.debug("New leaf is created because data is homogeneous: {}", currentNodeLabel.getName());
-            return Node.newLeafNode(currentNodeLabel, branchFromParent);
+            return Node.newLeafNode(currentNodeLabel, branchFromParent, countedSamples);
         }
         
         // check if there are more features and tree is not too deep before splitting
         boolean stoppingCriteriaReached = features.isEmpty() || currentDepth >= settings.getMaxDepth();
         if (stoppingCriteriaReached) {
-            Label majorityLabel = getMajorityLabel(trainingData);
+            Label majorityLabel = getMajorityLabel(countedSamples);
             log.debug("New leaf is created because stopping criteria reached: {}", majorityLabel.getName());
-            return Node.newLeafNode(majorityLabel, branchFromParent);
+            return Node.newLeafNode(majorityLabel, branchFromParent, countedSamples);
         }
 
         Feature bestSplit = settings.getBestSplitFinder().findBestSplitFeature(trainingData, features);
@@ -127,14 +130,14 @@ public class DecisionTree {
 
         // remove best split from features (TODO check if it is not slow)
         List<Feature> featuresWithoutSplitFeature = features.stream().filter(f -> !f.equals(bestSplit)).collect(toList());
-        Node node = Node.newNode(bestSplit, branchFromParent);
+        Node node = Node.newNode(bestSplit, branchFromParent, countedSamples);
         
         // check for another stopping criteria after we calculated a split
         boolean stoppingCriteriaWithInformationFromSplitReached = splitData.keySet().size() < settings.getMinimumNumberOfSplits();
         if (stoppingCriteriaWithInformationFromSplitReached) {
-            Label majorityLabel = getMajorityLabel(trainingData);
+            Label majorityLabel = getMajorityLabel(countedSamples);
             log.debug("New leaf is created because stopping criteria after split reached: {}", majorityLabel.getName());
-            return Node.newLeafNode(majorityLabel, branchFromParent);
+            return Node.newLeafNode(majorityLabel, branchFromParent, countedSamples);
         }
         
         Set<Entry<String, List<DataSample>>> treeBranches = splitData.entrySet();
@@ -146,8 +149,10 @@ public class DecisionTree {
             
             if (subsetTrainingData == null || subsetTrainingData.isEmpty()) {
                 // if subset data is empty add a leaf with label calculated from initial data
-                node.addChild(Node.newLeafNode(getMajorityLabel(trainingData), branchName));
+                // it has no counted data samples on the leaf, so empty map
+                node.addChild(Node.newLeafNode(getMajorityLabel(countedSamples), branchName, Maps.newHashMap()));
             } else {
+                // if we have clusters - calculate branches on other machines
                 if (settings.getCompute() != null) {
                     // grow tree further recursively with cluster
                     node.addChild(settings.getCompute().call(() -> growTree(subsetTrainingData, featuresWithoutSplitFeature, currentDepth + 1, branchName)));
@@ -172,8 +177,7 @@ public class DecisionTree {
         boolean branchFound = true;
         while (!node.isLeaf()) { // go through tree until leaf is reached
             if (!branchFound) {
-                throw new IllegalStateException("Could not classify! No branch in the tree was found for this data sample: " 
-                        + dataSample.toString() + " at this node: " + node.getName());
+                return getMajorityLabel(node.getCountedSamples());
             }
             branchFound = false;
             for (Node child : node.getChildren()) {
@@ -209,7 +213,7 @@ public class DecisionTree {
      */
     protected Label getLabel(List<DataSample> data) {
         // group by to map <Label, count>
-        Map<Label, Long> labelCount = data.parallelStream().collect(groupingBy(DataSample::getLabel, counting()));
+        Map<Label, Long> labelCount = countNbOfSamples(data);
         long totalCount = data.size();
         for (Label label : labelCount.keySet()) {
             long nbOfLabels = labelCount.get(label);
@@ -224,9 +228,17 @@ public class DecisionTree {
      * Differs from getLabel() that it always return some label and does not look at homogenityPercentage parameter. It
      * is used when tree growth is stopped and everything what is left must be classified so it returns majority label for the data.
      */
-    protected Label getMajorityLabel(List<DataSample> data) {
+    protected Label getMajorityLabel(Map<Label, Long> countedSamples) {
         // group by to map <Label, count> like in getLabels() but return Label with most counts
-        return data.parallelStream().collect(groupingBy(DataSample::getLabel, counting())).entrySet().stream().max(Map.Entry.comparingByValue()).get().getKey();
+        return countedSamples.entrySet().stream().max(Map.Entry.comparingByValue()).get().getKey();
+    }
+
+    /**
+     * Count number of datasamples for each Label.
+     */
+    protected Map<Label, Long> countNbOfSamples(List<DataSample> data) {
+        // group by to map <Label, count>
+        return data.parallelStream().collect(groupingBy(DataSample::getLabel, counting()));
     }
     
     /**

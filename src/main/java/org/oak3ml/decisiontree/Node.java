@@ -1,6 +1,7 @@
 package org.oak3ml.decisiontree;
 
 import java.util.List;
+import java.util.Map;
 
 import org.oak3ml.decisiontree.feature.Feature;
 import org.oak3ml.decisiontree.label.Label;
@@ -26,6 +27,9 @@ public class Node {
 
     /** Label if it is leaf node. */
     private Label label;
+    
+    /** Number of datasamples for each label seen by this node. */
+    private Map<Label, Long> countedSamples;
 
     /** Node's children. */
     private List<Node> children = Lists.newArrayList();
@@ -33,32 +37,34 @@ public class Node {
     /**
      * Protected private constructor.
      */
-    private Node(Feature feature, Object branchValue) {
+    private Node(Feature feature, Object branchValue, Map<Label, Long> countedSamples) {
         this.feature = feature;
         this.branchValue = branchValue;
+        this.countedSamples = countedSamples;
     }
 
     /**
      * Protected private constructor with Label.
      */
-    private Node(Feature feature, Label label, Object branchValue) {
+    private Node(Feature feature, Label label, Object branchValue, Map<Label, Long> countedSamples) {
         this.label = label;
         this.feature = feature;
         this.branchValue = branchValue;
+        this.countedSamples = countedSamples;
     }
 
     /**
      * Static factory method.
      */
-    public static Node newNode(Feature feature, Object branchValue) {
-        return new Node(feature, branchValue);
+    public static Node newNode(Feature feature, Object branchValue, Map<Label, Long> countedSamples) {
+        return new Node(feature, branchValue, countedSamples);
     }
 
     /**
-     * Static factory method for a leaf node..
+     * Static factory method for a leaf node.
      */
-    public static Node newLeafNode(Label label, Object branchValue) {
-        return new Node(null, label, branchValue);
+    public static Node newLeafNode(Label label, Object branchValue, Map<Label, Long> countedSamples) {
+        return new Node(null, label, branchValue, countedSamples);
     }
 
     public void addChild(Node child) {
@@ -87,6 +93,10 @@ public class Node {
 
     public String getName() {
         return feature != null ? feature.toString() : LEAF_NODE_NAME;
+    }
+
+    public Map<Label, Long> getCountedSamples() {
+        return countedSamples;
     }
 
 }
